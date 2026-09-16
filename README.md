@@ -243,6 +243,10 @@ Resposta: Aplicamos políticas de FinOps, utilizando instâncias baseadas em pro
 Resposta: O impacto é mínimo e restrito à ponta de captura. Bastará plugar o conector do Debezium no novo banco de dados em nuvem para publicar no mesmo tópico do Kafka. A camada de microsserviços de consulta, o Redis, o MongoDB e as APIs canônicas do TM Forum que atendem ao front-end permanecerão intocados, provando o valor do desacoplamento absoluto.
 ------------------------------
 
+1. "Como sua arquitetura lida com a Consistência Eventual caso um atendente altere o dado no CRM e o cliente consulte o app Meu Vivo um milissegundo depois?"Sua Resposta: "Como usamos uma arquitetura orientada a eventos com CDC, assumimos o trade-off da consistência eventual. No entanto, o transporte via Kafka e o processamento do Customer-Sync-Worker ocorrem na casa de pouquíssimos milissegundos. Para mitigar o impacto em telas críticas de alteração imediata, podemos adotar uma estratégia de otimismo na UI do canal ou um padrão Write-Through direto no Redis para aquela transação específica."2. "O que acontece se o MongoDB ou o Redis ficarem indisponíveis?"Sua Resposta: "A arquitetura foi desenhada com alta resiliência baseada em Circuit Breaker (Resilience4j). Se o Redis sofrer uma instabilidade, a API de consulta degrada graciosamente fazendo o fallback de leitura direto no MongoDB. Se o problema for na persistência ou processamento do Worker, o Kafka retém as mensagens nos tópicos com segurança até que o ambiente se restabeleça, sem que o cliente perca transações."3. "Por que você escolheu duas bases de dados (Redis + MongoDB) em vez de usar apenas uma?"Sua Resposta: "Seguimos estritamente o padrão CQRS. O MongoDB atua como nossa base NoSQL estruturada de persistência de longo prazo para armazenar o documento unificado JSON de Visão 360°. O Redis entra estritamente como um cache de alta frequência em memória para garantir que as buscas por ID de cliente fiquem sempre abaixo de 5ms, protegendo o MongoDB e os legados de sobrecarga de leitura (offloading)."
+
+
+
 
 
 
