@@ -38,3 +38,61 @@ Decidimos adotar uma **Arquitetura Orientada a Eventos (EDA)** baseada no padrã
 
 ## Notas de Implementação
 * O desenho detalhado dos contêineres e componentes seguirá estritamente a metodologia **C4 Model** (Níveis 1 e 2) na documentação complementar.
+
+
+## Diagrama de Arquitetura (C4 Model - Nível 2: Contêineres)
+
+O diagrama abaixo ilustra as fronteiras da solução proposta, o desacoplamento absoluto dos sistemas legados/cloud através do barramento de eventos, e a API de consulta consumindo o repositório consolidado em memória.
+
+```mermaid
+graph TD
+    %% Estilos Globais
+    classDef user fill:#6a1b9a,stroke:#3b0066,color:#fff,stroke-width:2px;
+    classDef app fill:#1976d2,stroke:#0d47a1,color:#fff,stroke-width:2px;
+    classDef db fill:#2e7d32,stroke:#1b5e20,color:#fff,stroke-width:2px;
+    classDef queue fill:#e65100,stroke:#bf360c,color:#fff,stroke-width:2px;
+    classDef legacy fill:#37474f,stroke:#263238,color:#fff,stroke-width:2px;
+
+    %% Atores e Interfaces (C4 Context/Container)
+    User((Usuário / Colaborador)):::user
+    AppVivo[App Meu Vivo / CRM Salesforce]:::app
+    
+    subgraph Ponto Unico de Consulta [Fronteira da Nova Solução - APIFICADA]
+        ApiCx[API de Consulta CX <br><b>Spring Boot / TMF629</b>]:::app
+        RedisDB[(Golden Record Data Store<br><b>Redis Enterprise / NoSQL</b>)]:::db
+        WorkerConsolidador[Worker Consolidador <br><b>Microsserviço de Eventos</b>]:::app
+        DLQ[(Fila de Erros <br><b>Kafka DLQ</b>)]:::queue
+    end
+
+    subgraph Camada de Integracao [Mensageria e Streaming]
+        KafkaBroker[Barramento de Eventos <br><b>Apache Kafka Cluster</b>]:::queue
+        CdcDebezium[Pipeline de Ingestão <br><b>Debezium / CDC</b>]:::queue
+    end
+
+    subgraph Sistemas de Origem [Sistemas Desacoplados]
+        Salesforce[CRM Cloud <br><b>Salesforce</b>]:::legacy
+        SistemasLegados[(Sistemas Legados <br><b>Bancos de Dados Relacionais</b>)]:::legacy
+    end
+
+    %% Fluxos de Consulta (Sincronos e < 1ms)
+    User -->|Acessa informações| AppVivo
+    AppVivo -->|Consulta Síncrona <br> GET /customer| ApiCx
+    ApiCx -->|Leitura Direta por ID <br> Chave-Valor| RedisDB
+
+    %% Fluxos de Escrita e Consolidação (Assíncronos / Event-Driven)
+    Salesforce -->|Webhook / Evento de Alteração| KafkaBroker
+    SistemasLegados -->|Transações de Dados| CdcDebezium
+    CdcDebezium -->|Publica Alterações Capturadas| KafkaBroker
+    
+    KafkaBroker -->|Consome Eventos em Tempo Real| WorkerConsolidador
+    WorkerConsolidador -->|Aplica Regras do Melhor Dado| RedisDB
+    WorkerConsolidador -->|Inconsistências / Erros| DLQ
+```
+
+## Notas Complementares sobre o Desenho:
+1. **Camada de Origem:** O **Salesforce** e os **Sistemas Legados** mudaram de papel. Em vez de receberem requisições diretas de consulta, eles tornaram-se estritamente produtores de dados de maneira assíncrona.
+2. **Ingestão Inteligente (CDC):** O **Debezium** elimina a necessidade de alterar os códigos-fonte dos sistemas legados. Ele "escuta" os logs dos bancos de dados e despacha as mudanças para o **Kafka** sem gerar impacto de performance ou acoplamento.
+3. **Tratamento do "Melhor Dado":** O componente **Worker Consolidador** isola toda a inteligência e as regras de negócio para resolver conflitos e duplicidades, garantindo que o **Redis** guarde estritamente o dado unificado e sanitizado (*Golden Record*).
+
+Se você copiar todo o bloco de código acima e colar no seu repositório Git, o gráfico será desenhado de forma totalmente nativa e interativa. Gostaria de adicionar a listagem técnica de quais campos do **TMF629** seriam mapeados neste diagrama para consolidar os dados do cliente?
+
