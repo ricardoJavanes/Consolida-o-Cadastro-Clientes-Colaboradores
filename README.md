@@ -94,5 +94,20 @@ graph TD
 2. **Ingestão Inteligente (CDC):** O **Debezium** elimina a necessidade de alterar os códigos-fonte dos sistemas legados. Ele "escuta" os logs dos bancos de dados e despacha as mudanças para o **Kafka** sem gerar impacto de performance ou acoplamento.
 3. **Tratamento do "Melhor Dado":** O componente **Worker Consolidador** isola toda a inteligência e as regras de negócio para resolver conflitos e duplicidades, garantindo que o **Redis** guarde estritamente o dado unificado e sanitizado (*Golden Record*).
 
-Se você copiar todo o bloco de código acima e colar no seu repositório Git, o gráfico será desenhado de forma totalmente nativa e interativa. Gostaria de adicionar a listagem técnica de quais campos do **TMF629** seriam mapeados neste diagrama para consolidar os dados do cliente?
+## 6. Governança & Padronização TM Forum APIs
+
+A adoção dos padrões abertos da **TM Forum** resolve o desafio de fragmentação de dados no ecossistema de Telecom, fornecendo contratos REST/JSON universais que desconectam o front-end dos esquemas legados proprietários.
+
+A tabela abaixo descreve as OpenAPIs utilizadas, seus respectivos domínios e a função prática na consolidação do "melhor dado":
+
+| API TM Forum | Domínio / Responsabilidade | Recursos & Função Prática |
+| :--- | :--- | :--- |
+| **TMF629**<br>Customer Management | Papel Comercial do Cliente (Customer Role) | Recurso `/customer`. Gerencia status da conta (Active/Suspended), preferências de contato e vínculo com contas de faturamento. |
+| **TMF632**<br>Party Management | Entidade Mestra Real (Individual / Organization) | Recursos `/individual` e `/organization`. Mantém CPF/CNPJ, nome, data de nascimento e documentos oficiais. Base MDM. |
+| **TMF637**<br>Product Inventory | Produtos e Serviços Contratados | Recurso `/product`. Mapeia planos, linhas móveis, banda larga, chips e status do catálogo ativo. |
+| **TMF666**<br>Account Management | Contas de Faturamento & Cobrança | Recurso `/billingAccount`. Dados de ciclo de faturamento, histórico de faturas e limite de crédito. |
+
+### Impacto na Estratégia de Ingestão e Agregação
+O componente **Worker Consolidador** (apresentado no diagrama C4) será responsável por consumir as mensagens brutas originadas no Salesforce e nos sistemas legados e traduzi-las diretamente para o modelo de dados canônico dessas 4 especificações. O resultado consolidado (*Golden Record*) persistido no **Redis** estará pronto para ser exposto nativamente por esses contratos, garantindo uma arquitetura extensível, padronizada mundialmente e de altíssima performance para a camada de CX.
+
 
