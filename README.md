@@ -89,6 +89,90 @@ graph TD
     WorkerConsolidador -->|Inconsistências / Erros| DLQ
 ```
 
+
+## 5. Diagrama da Arquitetura de Solução (C4 Model - Nível 2)
+
+O diagrama abaixo ilustra a separação em camadas da arquitetura proposta. Ele destaca os fluxos de consulta síncronos (< 5ms) protegidos por cache-hit e o fluxo de ingestão e consolidação assíncrona orientada a eventos (EDA).
+
+```mermaid
+graph TD
+    %% Estilos Globais
+    classDef canais fill:#ffffff,stroke:#00a1e4,color:#000,stroke-width:2px;
+    classDef exposicao fill:#ffffff,stroke:#006699,color:#000,stroke-width:2px;
+    classDef consulta fill:#e8f5e9,stroke:#2e7d32,color:#000,stroke-width:2px;
+    classDef ingestao fill:#fff3e0,stroke:#e65100,color:#000,stroke-width:2px;
+    classDef origens fill:#f5f5f5,stroke:#37474f,color:#000,stroke-width:2px;
+    classDef db fill:#ffffff,stroke:#1b5e20,color:#000,stroke-width:1px;
+    classDef kafka fill:#ffffff,stroke:#bf360c,color:#000,stroke-width:1px;
+
+    %% CAMADA DE CANAIS / CONSUMIDORES
+    subgraph CamadaCanais [CAMADA DE CANAIS / CONSUMIDORES]
+        MeuVivo[App Meu Vivo <br><i>(Mobile Native)</i>]:::canais
+        CrmAgente[CRM do Agente / Web Portal <br><i>(Web Application)</i>]:::canais
+    end
+
+    %% CAMADA DE EXPOSIÇÃO E GOVERNANÇA
+    subgraph CamadaExposicao [CAMADA DE EXPOSIÇÃO E GOVERNANÇA (API MANAGEMENT)]
+        ApiGateway[WSO2 API Manager / Kong Gateway <br><b>[OAuth2 / OIDC | Rate Limiting | Open API TM Forum TMF629 & TMF632]</b>]:::exposicao
+    end
+
+    %% CAMADA DE CONSULTA (READ MODEL)
+    subgraph CamadaConsulta [CAMADA DE CONSULTA (READ MODEL)]
+        QueryApi[Customer-Query-API <br><i>(Spring Boot / Go - Microservice)</i>]:::consulta
+        Redis[Redis Cluster <br><i>(In-Memory Cache < 5ms)</i>]:::db
+        Mongo[MongoDB / DocumentDB <br><i>(Single View 360°)</i>]:::db
+    end
+
+    %% CAMADA DE INGESTÃO E EVENTOS (EDA)
+    subgraph CamadaIngestao [CAMADA DE INGESTÃO E EVENTOS (EDA)]
+        SyncWorker[Customer-Sync-Worker <br><i>(Merge & Deduplication Service)</i>]:::ingestao
+        Kafka[Apache Kafka Cluster <br><i>(Topics: customer.events / DLQ)</i>]:::kafka
+        CdcLegados[Debezium CDC <br><i>(Legados)</i>]:::ingestao
+        CdcCloud[Debezium CDC <br><i>(Cloud Services)</i>]:::ingestao
+    end
+
+    %% SISTEMAS LEGADOS e CLOUD
+    subgraph SistemasLegados [SISTEMAS LEGADOS (ON-PREMISES)]
+        OracleDB[Oracle DB / Mainframe <br><i>(Reads WAL / Redo Logs)</i>]:::origens
+    end
+
+    subgraph SistemasCloud [SISTEMAS CLOUD (MULTI-CLOUD)]
+        PostgresCloud[PostgreSQL / Cloud Services <br><i>(Reads CDC / Change Logs)</i>]:::origens
+    end
+
+    %% Relacionamentos e Fluxos
+    MeuVivo -->|REST| ApiGateway
+    CrmAgente -->|REST| ApiGateway
+    
+    ApiGateway -->|TMF629 / TMF632| QueryApi
+    
+    QueryApi -->|Cache Hit| Redis
+    QueryApi -->|Cache Miss| Mongo
+    
+    SyncWorker -.->|Update Async| Redis
+    SyncWorker -.->|Update Async| Mongo
+    SyncWorker -->|Consume| Kafka
+    
+    Kafka <--|Streaming| CdcLegados
+    Kafka <--|Streaming| CdcCloud
+    
+    CdcLegados -.->|Leitura de Logs| OracleDB
+    CdcCloud -.->|Leitura de Logs| PostgresCloud
+```
+
+---
+
+### Detalhamento dos Componentes do Desenho
+
+1. **Camada de Exposição e Governança:** O **API Gateway** unifica a entrada de canais, aplicando segurança jurídica (OAuth2/OIDC) e políticas de tráfego (Rate Limiting) diretamente sob os contratos globais **TMF629** e **TMF632**.
+2. **Camada de Consulta (Read Model):** A **Customer-Query-API** implementa a segregação do CQRS. Ela responde requisições de leitura de altíssima performance buscando preferencialmente no **Redis** (latência < 5ms). Em caso de *Cache Miss*, recorre ao **MongoDB/DocumentDB**, que mantém o documento estruturado com a visão unificada de 360° do cliente em formato JSON.
+3. **Camada de Ingestão e Eventos (EDA):** A captura de dados é feita de forma não intrusiva pelo **Debezium CDC**, que lê diretamente os logs de transação (Redo/WAL) dos sistemas legados on-premises e cloud, eliminando impactos de CPU e consultas de leitura nas tabelas de produção. O **Customer-Sync-Worker** realiza a limpeza, deduplicação (por CPF/CNPJ) e atualização assíncrona dos modelos de leitura.
+
+
+
+
+
+
 ## Notas Complementares sobre o Desenho:
 1. **Camada de Origem:** O **Salesforce** e os **Sistemas Legados** mudaram de papel. Em vez de receberem requisições diretas de consulta, eles tornaram-se estritamente produtores de dados de maneira assíncrona.
 2. **Ingestão Inteligente (CDC):** O **Debezium** elimina a necessidade de alterar os códigos-fonte dos sistemas legados. Ele "escuta" os logs dos bancos de dados e despacha as mudanças para o **Kafka** sem gerar impacto de performance ou acoplamento.
