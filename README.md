@@ -29,8 +29,7 @@ Decidimos adotar uma **Arquitetura Orientada a Eventos (EDA)** baseada no padrã
 
 O diagrama abaixo ilustra a separação física e lógica em camadas da solução, evidenciando o isolamento completo dos legados por meio da mensageria e o fluxo síncrono de altíssima performance para os canais.
 
-```mermaid
-graph TD
+```graph TD
     %% Estilos Globais
     classDef canais fill:#ffffff,stroke:#00a1e4,color:#000,stroke-width:2px;
     classDef exposicao fill:#ffffff,stroke:#006699,color:#000,stroke-width:2px;
@@ -48,7 +47,7 @@ graph TD
 
     %% CAMADA DE EXPOSIÇÃO E GOVERNANÇA
     subgraph CamadaExposicao ["CAMADA DE EXPOSIÇÃO E GOVERNANÇA (API MANAGEMENT)"]
-        ApiGateway["WSO2 API Manager / Kong Gateway <br> <b>[OAuth2 / OIDC | Rate Limiting | Open API TM Forum]</b>"]:::exposicao
+        ApiGateway["WSO2 API Manager / Kong Gateway <br> (OAuth2 / OIDC - Rate Limiting - Open API TM Forum)"]:::exposicao
     end
 
     %% CAMADA DE CONSULTA (READ MODEL)
@@ -93,6 +92,7 @@ graph TD
     
     CdcLegados -.->|Reads Redo/WAL Logs| OracleDB
     CdcCloud -.->|Reads Change Logs| PostgresCloud
+
 ```
 
 ## 5. Consequências
