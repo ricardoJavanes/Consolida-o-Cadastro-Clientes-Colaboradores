@@ -246,3 +246,71 @@ Resposta: O impacto é mínimo e restrito à ponta de captura. Bastará plugar o
 
 
 
+
+graph TD
+    %% Estilos Globais AWS
+    classDef canais fill:#ffffff,stroke:#00a1e4,color:#000,stroke-width:2px;
+    classDef exposicao fill:#ffffff,stroke:#ff9900,color:#000,stroke-width:2px;
+    classDef consulta fill:#e8f5e9,stroke:#2e7d32,color:#000,stroke-width:2px;
+    classDef ingestao fill:#fff3e0,stroke:#e65100,color:#000,stroke-width:2px;
+    classDef origens fill:#f5f5f5,stroke:#37474f,color:#000,stroke-width:2px;
+    classDef db fill:#ffffff,stroke:#1b5e20,color:#000,stroke-width:1px;
+    classDef msk fill:#ffffff,stroke:#bf360c,color:#000,stroke-width:1px;
+
+    %% CAMADA DE CANAIS / CONSUMIDORES
+    subgraph CamadaCanais ["CAMADA DE CANAIS / CONSUMIDORES"]
+        MeuVivo["App Meu Vivo <br> (Mobile Native)"]:::canais
+        CrmAgente["CRM do Agente / Web Portal <br> (Web Application)"]:::canais
+    end
+
+    %% CAMADA DE EXPOSIÇÃO E GOVERNANÇA (AWS)
+    subgraph CamadaExposicao ["CAMADA DE EXPOSIÇÃO E GOVERNANÇA"]
+        ApiGateway["Amazon API Gateway <br> (OAuth2-Cognito / Rate Limiting / OpenAPI TM Forum)"]:::exposicao
+    end
+
+    %% CAMADA DE CONSULTA / READ MODEL (AWS)
+    subgraph CamadaConsulta ["CAMADA DE CONSULTA (READ MODEL)"]
+        QueryApi["Customer-Query-API <br> (AWS Fargate no EKS/ECS)"]:::consulta
+        Redis["Amazon ElastiCache for Redis <br> (In-Memory Cache < 5ms)"]:::db
+        Mongo["Amazon DocumentDB <br> (Visão 360° JSON)"]:::db
+    end
+
+    %% CAMADA DE INGESTÃO E EVENTOS / EDA (AWS)
+    subgraph CamadaIngestao ["CAMADA DE INGESTÃO E EVENTOS (EDA)"]
+        SyncWorker["Customer-Sync-Worker <br> (AWS Fargate Consumer)"]:::ingestao
+        Kafka["Amazon MSK <br> (Managed Kafka Cluster / DLQ)"]:::msk
+        CdcLegados["AWS DMS / MSK Connect <br> (CDC Legados On-Premises)"]:::ingestao
+        CdcCloud["AWS DMS / MSK Connect <br> (CDC Cloud Services)"]:::ingestao
+    end
+
+    %% SISTEMAS DE ORIGEM
+    subgraph SistemasLegados ["SISTEMAS LEGADOS (ON-PREMISES)"]
+        OracleDB["Oracle DB / Mainframe <br> (Leitura de Redo/WAL Logs)"]:::origens
+    end
+
+    subgraph SistemasCloud ["SISTEMAS CLOUD & CRM"]
+        PostgresCloud["PostgreSQL / Cloud Services / Salesforce <br> (Leitura de Change Logs)"]:::origens
+    end
+
+    %% Relacionamentos e Fluxos AWS
+    MeuVivo -->|HTTPS - REST| ApiGateway
+    CrmAgente -->|HTTPS - REST| ApiGateway
+    
+    ApiGateway -->|TMF629 / TMF632| QueryApi
+    
+    QueryApi -->|Cache Hit < 5ms| Redis
+    QueryApi -->|Cache Miss / Fallback| Mongo
+    
+    SyncWorker -.->|Update Async| Redis
+    SyncWorker -.->|Update Async| Mongo
+    SyncWorker -->|Consume Topics| Kafka
+    
+    CdcLegados -->|CDC Events| Kafka
+    CdcCloud -->|CDC Events| Kafka
+    
+    CdcLegados -.->|Reads Transation Logs| OracleDB
+    CdcCloud -.->|Reads Change Logs| PostgresCloud
+
+
+
+
