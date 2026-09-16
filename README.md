@@ -246,7 +246,7 @@ Resposta: O impacto é mínimo e restrito à ponta de captura. Bastará plugar o
 
 
 
-
+```
 graph TD
     %% Estilos Globais AWS
     classDef canais fill:#ffffff,stroke:#00a1e4,color:#000,stroke-width:2px;
@@ -310,6 +310,7 @@ graph TD
     
     CdcLegados -.->|Reads Transation Logs| OracleDB
     CdcCloud -.->|Reads Change Logs| PostgresCloud
+```
 
 
 
