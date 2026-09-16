@@ -29,7 +29,8 @@ Decidimos adotar uma **Arquitetura Orientada a Eventos (EDA)** baseada no padrã
 
 O diagrama abaixo ilustra a separação física e lógica em camadas da solução, evidenciando o isolamento completo dos legados por meio da mensageria e o fluxo síncrono de altíssima performance para os canais.
 
-```graph TD
+```mermaid
+graph TD
     %% Estilos Globais
     classDef canais fill:#ffffff,stroke:#00a1e4,color:#000,stroke-width:2px;
     classDef exposicao fill:#ffffff,stroke:#006699,color:#000,stroke-width:2px;
@@ -92,7 +93,6 @@ O diagrama abaixo ilustra a separação física e lógica em camadas da soluçã
     
     CdcLegados -.->|Reads Redo/WAL Logs| OracleDB
     CdcCloud -.->|Reads Change Logs| PostgresCloud
-
 ```
 
 ## 5. Consequências
@@ -125,4 +125,53 @@ Para materializar o conceito de "melhor dado" (*Golden Record*) no ponto único 
 
 ### Objeto Principal: `Customer`
 *   **`id`** (String): Identificador único global do cliente gerado de forma determinística por hash (ex: baseado no CPF/CNPJ) para evitar duplicidade entre origens.
-*   **`href`** (String): URL de auto-referência para acesso direto ao recurso da API (ex: `https://vivo.com.br`).
+*   **`href`** (String): URL de auto-referência para acesso direto ao recurso da API (ex: `https://api.vivo.com.br/customerManagement/v4/customer/VIVO-CUST-89324792`).
+*   **`status`** (String): Estado comercial do cliente (`Active`, `Suspended`, `Terminated`). Regra: se qualquer legado apontar uma linha ativa, o status global permanece `Active`.
+*   **`statusReason`** (String): Justificativa técnica ou comercial do status atual.
+
+### Sub-estruturas e Relacionamentos
+*   **`validFor`** (TimePeriod): Período de validade cronológica do vínculo comercial do cliente.
+*   **`engagedParty`** (RelatedPartyRef): Vínculo com a entidade mestre real (mapeada na **TMF632**). Garante a amarração do documento único (CPF/CNPJ) e nome civil ao papel comercial do cliente.
+*   **`account`** (AccountRef): Lista de referências de contas de faturamento (vínculo com a **TMF666**) mapeando os ciclos financeiros sem acoplamento de tabelas.
+*   **`contactMedium`** (Lista de ContactMedium): Contém canais de comunicação (`mediumType`: `Email`, `Mobile`) e flags de prioridade (`preferred`: `true/false`). O Salesforce atua com prioridade de escrita para preferências de contato.
+
+```json
+{
+  "id": "VIVO-CUST-89324792",
+  "href": "https://api.vivo.com.br/customerManagement/v4/customer/VIVO-CUST-89324792",
+  "status": "Active",
+  "validFor": {
+    "startDateTime": "2026-01-15T08:00:00Z"
+  },
+  "engagedParty": {
+    "id": "IND-9921",
+    "name": "Maria Silva",
+    "@type": "Individual"
+  },
+  "account": [
+    {
+      "id": "ACC-998877",
+      "description": "Conta Fatura Combo Móvel + Fibra",
+      "@referredType": "BillingAccount"
+    }
+  ],
+  "contactMedium": [
+    {
+      "preferred": true,
+      "mediumType": "Mobile",
+      "characteristic": {
+        "phoneNumber": "11999998888"
+      }
+    }
+  ]
+}
+```
+
+## 8. Separação de Domínios Cadastrais: Party (TMF632) vs. Customer (TMF629)
+
+### Justificativa de Desacoplamento
+Em sistemas tradicionais, dados civis (Nome, CPF) e dados comerciais (Planos, Status) costumam residir misturados no mesmo modelo de dados. Isso gera replicação cadastral indevida quando o cliente adquire múltiplos produtos independentes e impede uma governança sólida de exclusão de dados e privacidade (LGPD).
+
+A separação promovida pelas especificações do **TM Forum** resolve essa fricção arquitetural:
+*   **TMF632 (Party / Individual):** Centraliza estritamente o Indivíduo Mestre de forma única no ecossistema (visão de MDM).
+*   **TMF629 (Customer):** Modela os papéis comerciais que aquele indivíduo desempenha na empresa (ex: titular de conta residencial, representante legal corporativo), apontando de forma relacional para o registro mestre de Party através do atributo `engagedParty`.
