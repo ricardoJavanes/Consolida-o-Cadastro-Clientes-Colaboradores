@@ -110,4 +110,92 @@ A tabela abaixo descreve as OpenAPIs utilizadas, seus respectivos domínios e a 
 ### Impacto na Estratégia de Ingestão e Agregação
 O componente **Worker Consolidador** (apresentado no diagrama C4) será responsável por consumir as mensagens brutas originadas no Salesforce e nos sistemas legados e traduzi-las diretamente para o modelo de dados canônico dessas 4 especificações. O resultado consolidado (*Golden Record*) persistido no **Redis** estará pronto para ser exposto nativamente por esses contratos, garantindo uma arquitetura extensível, padronizada mundialmente e de altíssima performance para a camada de CX.
 
+## 7. Mapeamento Técnico de Atributos (Modelo Canônico TMF629)
+
+Para materializar o conceito de "melhor dado" (*Golden Record*) no ponto único de consulta (**Redis**), o **Worker Consolidador** realiza o mapeamento e a higienização dos payloads brutos (Salesforce e Legados) transformando-os na estrutura padronizada da **TMF629**.
+
+Abaixo estão os campos técnicos essenciais mapeados e a estratégia de consolidação para cada um:
+
+### Objeto Principal: `Customer`
+
+*   **`id`** (String)
+    *   **Descrição:** Identificador único global do cliente na Vivo.
+    *   **Estratégia:** Gerado de forma determinística através de um hash baseado no documento do cliente (ex: CPF/CNPJ), garantindo unicidade indesejada de duplicidade entre origens.
+*   **`href`** (String)
+    *   **Descrição:** URL de auto-referência para acesso direto ao recurso da API.
+    *   **Exemplo:** `https://vivo.com.br`
+*   **`status`** (String)
+    *   **Descrição:** Estado comercial do cliente no ecossistema.
+    *   **Valores Válidos:** `Active`, `Suspended`, `Terminated`.
+    *   **Regra de Consolidação:** Se qualquer sistema legado reportar o cliente como ativo com uma linha móvel em funcionamento, o status global será mantido como `Active`.
+*   **`statusReason`** (String)
+    *   **Descrição:** Justificativa ou motivo do status atual (ex: inadimplência, solicitação do usuário).
+
+### Sub-estruturas e Relacionamentos
+
+#### 1. `validFor` (TimePeriod)
+*   **Campos:** `startDateTime` (DateTime), `endDateTime` (DateTime)
+*   **Função:** Determina o período de validade jurídica e comercial daquele cadastro de cliente.
+
+#### 2. `engagedParty` (RelatedPartyRef)
+*   **Campos:** `id`, `href`, `name`, `@referredType` (Individual / Organization)
+*   **Função:** Cria o vínculo direto com a entidade mestra real mapeada na **TMF632**. É aqui que o ID do documento único (CPF/CNPJ) e o nome civil unificado são amarrados ao papel comercial do cliente.
+
+#### 3. `account` (AccountRef)
+*   **Campos:** `id`, `description`, `href`, `@referredType` (BillingAccount)
+*   **Função:** Lista de referências de contas de faturamento vinculadas ao cliente (mapeadas na **TMF666**). Permite que a camada de CX saiba imediatamente quais faturas e ciclos pertencem àquele perfil sem acoplamento direto.
+
+#### 4. `contactMedium` (Lista de ContactMedium)
+*   **Campos:** 
+    *   `preferred` (Boolean) - Indicador se é o canal favorito de contato.
+    *   `mediumType` (String) - Tipo de contato (ex: `Email`, `Mobile`, `PostalAddress`).
+    *   `characteristic` (Objeto) - Contém os dados em si (ex: `emailAddress`, `phoneNumber`, `street1`).
+*   **Regra de Consolidação do "Melhor Dado":** O Salesforce (CRM) será considerado a origem de maior prioridade (*source of truth*) para as flags de `preferred`. Caso um sistema legado traga um número de telefone mais recente (validado por data de modificação), o Worker atualiza a lista mantendo o histórico sanitizado.
+
+---
+
+### Exemplo de Payload Consolidado em Memória (Redis / JSON)
+
+Este é o formato de dado de altíssima performance estruturado conforme a especificação que a **API de Consulta CX** lerá do cache instantaneamente:
+
+```json
+{
+  "id": "VIVO-CUST-89324792",
+  "href": "https://vivo.com.br",
+  "status": "Active",
+  "validFor": {
+    "startDateTime": "2024-01-15T08:00:00Z"
+  },
+  "engagedParty": {
+    "id": "12345678900",
+    "name": "João da Silva",
+    "@referredType": "Individual"
+  },
+  "account": [
+    {
+      "id": "ACC-998877",
+      "description": "Conta Fatura Combo Móvel + Fibra",
+      "@referredType": "BillingAccount"
+    }
+  ],
+  "contactMedium": [
+    {
+      "preferred": true,
+      "mediumType": "Mobile",
+      "characteristic": {
+        "phoneNumber": "11999998888"
+      }
+    },
+    {
+      "preferred": false,
+      "mediumType": "Email",
+      "characteristic": {
+        "emailAddress": "joao.silva@email.com"
+      }
+    }
+  ]
+}
+```
+
+
 
