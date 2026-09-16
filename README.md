@@ -41,38 +41,38 @@ graph TD
     classDef kafka fill:#ffffff,stroke:#bf360c,color:#000,stroke-width:1px;
 
     %% CAMADA DE CANAIS / CONSUMIDORES
-    subgraph CamadaCanais [CAMADA DE CANAIS / CONSUMIDORES]
-        MeuVivo[App Meu Vivo <br><i>(Mobile Native)</i>]:::canais
-        CrmAgente[CRM do Agente / Web Portal <br><i>(Web Application)</i>]:::canais
+    subgraph CamadaCanais ["CAMADA DE CANAIS / CONSUMIDORES"]
+        MeuVivo["App Meu Vivo <br> (Mobile Native)"]:::canais
+        CrmAgente["CRM do Agente / Web Portal <br> (Web Application)"]:::canais
     end
 
     %% CAMADA DE EXPOSIÇÃO E GOVERNANÇA
-    subgraph CamadaExposicao [CAMADA DE EXPOSIÇÃO E GOVERNANÇA (API MANAGEMENT)]
-        ApiGateway[WSO2 API Manager / Kong Gateway <br><b>[OAuth2 / OIDC | Rate Limiting | Open API TM Forum]</b>]:::exposicao
+    subgraph CamadaExposicao ["CAMADA DE EXPOSIÇÃO E GOVERNANÇA (API MANAGEMENT)"]
+        ApiGateway["WSO2 API Manager / Kong Gateway <br> <b>[OAuth2 / OIDC | Rate Limiting | Open API TM Forum]</b>"]:::exposicao
     end
 
     %% CAMADA DE CONSULTA (READ MODEL)
-    subgraph CamadaConsulta [CAMADA DE CONSULTA (READ MODEL)]
-        QueryApi[Customer-Query-API <br><i>(Spring Boot / Go - Microservice)</i>]:::consulta
-        Redis[Redis Cluster <br><i>(In-Memory Cache < 5ms)</i>]:::db
-        Mongo[MongoDB / DocumentDB <br><i>(Single View 360°)</i>]:::db
+    subgraph CamadaConsulta ["CAMADA DE CONSULTA (READ MODEL)"]
+        QueryApi["Customer-Query-API <br> (Spring Boot / Go - Microservice)"]:::consulta
+        Redis["Redis Cluster <br> (In-Memory Cache < 5ms)"]:::db
+        Mongo["MongoDB / DocumentDB <br> (Single View 360°)"]:::db
     end
 
     %% CAMADA DE INGESTÃO E EVENTOS (EDA)
-    subgraph CamadaIngestao [CAMADA DE INGESTÃO E EVENTOS (EDA)]
-        SyncWorker[Customer-Sync-Worker <br><i>(Merge & Deduplication Service)</i>]:::ingestao
-        Kafka[Apache Kafka Cluster <br><i>(Topics: customer.events / DLQ)</i>]:::kafka
-        CdcLegados[Debezium CDC <br><i>(Legados)</i>]:::ingestao
-        CdcCloud[Debezium CDC <br><i>(Cloud Services)</i>]:::ingestao
+    subgraph CamadaIngestao ["CAMADA DE INGESTÃO E EVENTOS (EDA)"]
+        SyncWorker["Customer-Sync-Worker <br> (Merge & Deduplication Service)"]:::ingestao
+        Kafka["Apache Kafka Cluster <br> (Topics: customer.events / DLQ)"]:::kafka
+        CdcLegados["Debezium CDC <br> (Legados)"]:::ingestao
+        CdcCloud["Debezium CDC <br> (Cloud Services)"]:::ingestao
     end
 
     %% SISTEMAS LEGADOS e CLOUD
-    subgraph SistemasLegados [SISTEMAS LEGADOS (ON-PREMISES)]
-        OracleDB[Oracle DB / Mainframe <br><i>(Reads WAL / Redo Logs)</i>]:::origens
+    subgraph SistemasLegados ["SISTEMAS LEGADOS (ON-PREMISES)"]
+        OracleDB["Oracle DB / Mainframe <br> (Reads WAL / Redo Logs)"]:::origens
     end
 
-    subgraph SistemasCloud [SISTEMAS CLOUD]
-        PostgresCloud[PostgreSQL / Cloud Services / Salesforce <br><i>(Reads Change Logs)</i>]:::origens
+    subgraph SistemasCloud ["SISTEMAS CLOUD"]
+        PostgresCloud["PostgreSQL / Cloud Services / Salesforce <br> (Reads Change Logs)"]:::origens
     end
 
     %% Relacionamentos e Fluxos
