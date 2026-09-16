@@ -31,14 +31,14 @@ O diagrama abaixo ilustra a separação física e lógica em camadas da soluçã
 
 ```mermaid
 graph TD
-    %% Estilos Globais
+    %% Estilos Globais AWS
     classDef canais fill:#ffffff,stroke:#00a1e4,color:#000,stroke-width:2px;
-    classDef exposicao fill:#ffffff,stroke:#006699,color:#000,stroke-width:2px;
+    classDef exposicao fill:#ffffff,stroke:#ff9900,color:#000,stroke-width:2px;
     classDef consulta fill:#e8f5e9,stroke:#2e7d32,color:#000,stroke-width:2px;
     classDef ingestao fill:#fff3e0,stroke:#e65100,color:#000,stroke-width:2px;
     classDef origens fill:#f5f5f5,stroke:#37474f,color:#000,stroke-width:2px;
     classDef db fill:#ffffff,stroke:#1b5e20,color:#000,stroke-width:1px;
-    classDef kafka fill:#ffffff,stroke:#bf360c,color:#000,stroke-width:1px;
+    classDef msk fill:#ffffff,stroke:#bf360c,color:#000,stroke-width:1px;
 
     %% CAMADA DE CANAIS / CONSUMIDORES
     subgraph CamadaCanais ["CAMADA DE CANAIS / CONSUMIDORES"]
@@ -46,38 +46,38 @@ graph TD
         CrmAgente["CRM do Agente / Web Portal <br> (Web Application)"]:::canais
     end
 
-    %% CAMADA DE EXPOSIÇÃO E GOVERNANÇA
-    subgraph CamadaExposicao ["CAMADA DE EXPOSIÇÃO E GOVERNANÇA (API MANAGEMENT)"]
-        ApiGateway["WSO2 API Manager / Kong Gateway <br> (OAuth2 / OIDC - Rate Limiting - Open API TM Forum)"]:::exposicao
+    %% CAMADA DE EXPOSIÇÃO E GOVERNANÇA (AWS)
+    subgraph CamadaExposicao ["CAMADA DE EXPOSIÇÃO E GOVERNANÇA"]
+        ApiGateway["Amazon API Gateway <br> (OAuth2-Cognito / Rate Limiting / OpenAPI TM Forum)"]:::exposicao
     end
 
-    %% CAMADA DE CONSULTA (READ MODEL)
+    %% CAMADA DE CONSULTA / READ MODEL (AWS)
     subgraph CamadaConsulta ["CAMADA DE CONSULTA (READ MODEL)"]
-        QueryApi["Customer-Query-API <br> (Spring Boot / Go - Microservice)"]:::consulta
-        Redis["Redis Cluster <br> (In-Memory Cache < 5ms)"]:::db
-        Mongo["MongoDB / DocumentDB <br> (Single View 360°)"]:::db
+        QueryApi["Customer-Query-API <br> (AWS Fargate no EKS/ECS)"]:::consulta
+        Redis["Amazon ElastiCache for Redis <br> (In-Memory Cache < 5ms)"]:::db
+        Mongo["Amazon DocumentDB <br> (Visão 360° JSON)"]:::db
     end
 
-    %% CAMADA DE INGESTÃO E EVENTOS (EDA)
+    %% CAMADA DE INGESTÃO E EVENTOS / EDA (AWS)
     subgraph CamadaIngestao ["CAMADA DE INGESTÃO E EVENTOS (EDA)"]
-        SyncWorker["Customer-Sync-Worker <br> (Merge & Deduplication Service)"]:::ingestao
-        Kafka["Apache Kafka Cluster <br> (Topics: customer.events / DLQ)"]:::kafka
-        CdcLegados["Debezium CDC <br> (Legados)"]:::ingestao
-        CdcCloud["Debezium CDC <br> (Cloud Services)"]:::ingestao
+        SyncWorker["Customer-Sync-Worker <br> (AWS Fargate Consumer)"]:::ingestao
+        Kafka["Amazon MSK <br> (Managed Kafka Cluster / DLQ)"]:::msk
+        CdcLegados["AWS DMS / MSK Connect <br> (CDC Legados On-Premises)"]:::ingestao
+        CdcCloud["AWS DMS / MSK Connect <br> (CDC Cloud Services)"]:::ingestao
     end
 
-    %% SISTEMAS LEGADOS e CLOUD
+    %% SISTEMAS DE ORIGEM
     subgraph SistemasLegados ["SISTEMAS LEGADOS (ON-PREMISES)"]
-        OracleDB["Oracle DB / Mainframe <br> (Reads WAL / Redo Logs)"]:::origens
+        OracleDB["Oracle DB / Mainframe <br> (Leitura de Redo/WAL Logs)"]:::origens
     end
 
-    subgraph SistemasCloud ["SISTEMAS CLOUD"]
-        PostgresCloud["PostgreSQL / Cloud Services / Salesforce <br> (Reads Change Logs)"]:::origens
+    subgraph SistemasCloud ["SISTEMAS CLOUD & CRM"]
+        PostgresCloud["PostgreSQL / Cloud Services / Salesforce <br> (Leitura de Change Logs)"]:::origens
     end
 
-    %% Relacionamentos e Fluxos
-    MeuVivo -->|HTTPS / REST| ApiGateway
-    CrmAgente -->|HTTPS / REST| ApiGateway
+    %% Relacionamentos e Fluxos AWS
+    MeuVivo -->|HTTPS - REST| ApiGateway
+    CrmAgente -->|HTTPS - REST| ApiGateway
     
     ApiGateway -->|TMF629 / TMF632| QueryApi
     
@@ -91,8 +91,9 @@ graph TD
     CdcLegados -->|CDC Events| Kafka
     CdcCloud -->|CDC Events| Kafka
     
-    CdcLegados -.->|Reads Redo/WAL Logs| OracleDB
+    CdcLegados -.->|Reads Transation Logs| OracleDB
     CdcCloud -.->|Reads Change Logs| PostgresCloud
+
 
 ```
 
