@@ -88,11 +88,12 @@ graph TD
     SyncWorker -.->|Update Async| Mongo
     SyncWorker -->|Consume Topics| Kafka
     
-    Kafka <--|CDC Events| CdcLegados
-    Kafka <--|CDC Events| CdcCloud
+    CdcLegados -->|CDC Events| Kafka
+    CdcCloud -->|CDC Events| Kafka
     
     CdcLegados -.->|Reads Redo/WAL Logs| OracleDB
     CdcCloud -.->|Reads Change Logs| PostgresCloud
+
 ```
 
 ## 5. Consequências
