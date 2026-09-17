@@ -105,18 +105,17 @@ graph TD
     classDef db fill:#ffffff,stroke:#1b5e20,color:#000,stroke-width:1px;
     classDef kafka fill:#ffffff,stroke:#bf360c,color:#000,stroke-width:1px;
 
-    %% CAMADA DE CANAIS / CONSUMIDORES
-    subgraph CamadaCanais [CAMADA DE CANAIS / CONSUMIDORES]
-        %% % CAMADA DE CANAIS / CONSUMIDORES
-subgraph CamadaCanais [CAMADA DE CANAIS / CONSUMIDORES]
-    MeuVivo ["App Meu Vivo <br><i>(Mobile Native)</i>"]:::canais
-    CrmAgente ["CRM do Agente / Web Portal <br><i>(Web Application)</i>"]:::canais
+       %% % CAMADA DE CANAIS / CONSUMIDORES
+    subgraph CamadaCanais ["CAMADA DE CANAIS / CONSUMIDORES"]
+        MeuVivo["App Meu Vivo <br><i>(Mobile Native)</i>"]:::canais
+        CrmAgente["CRM do Agente / Web Portal <br><i>(Web Application)</i>"]:::canais
     end
 
-    %% CAMADA DE EXPOSIÇÃO E GOVERNANÇA
-    subgraph CamadaExposicao [CAMADA DE EXPOSIÇÃO E GOVERNANÇA (API MANAGEMENT)]
-        ApiGateway[WSO2 API Manager / Kong Gateway <br><b>[OAuth2 / OIDC | Rate Limiting | Open API TM Forum TMF629 & TMF632]</b>]:::exposicao
+    %% % CAMADA DE EXPOSIÇÃO E GOVERNANÇA
+    subgraph CamadaExposicao ["CAMADA DE EXPOSIÇÃO E GOVERNANÇA (API MANAGEMENT)"]
+        ApiGateway["WSO2 API Manager / Kong Gateway <br><b>[OAuth2 / OIDC | Rate Limiting | Open API TM Forum TMF629 & TMF630]</b>"]:::exposicao
     end
+
 
     %% CAMADA DE CONSULTA (READ MODEL)
     subgraph CamadaConsulta [CAMADA DE CONSULTA (READ MODEL)]
