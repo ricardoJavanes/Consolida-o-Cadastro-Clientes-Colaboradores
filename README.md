@@ -107,8 +107,10 @@ graph TD
 
     %% CAMADA DE CANAIS / CONSUMIDORES
     subgraph CamadaCanais [CAMADA DE CANAIS / CONSUMIDORES]
-        MeuVivo ["App Meu Vivo <br><i>(Mobile Native)</i>"]:::canais
-        CrmAgente[CRM do Agente / Web Portal <br><i>(Web Application)</i>]:::canais
+        %% % CAMADA DE CANAIS / CONSUMIDORES
+subgraph CamadaCanais [CAMADA DE CANAIS / CONSUMIDORES]
+    MeuVivo ["App Meu Vivo <br><i>(Mobile Native)</i>"]:::canais
+    CrmAgente ["CRM do Agente / Web Portal <br><i>(Web Application)</i>"]:::canais
     end
 
     %% CAMADA DE EXPOSIÇÃO E GOVERNANÇA
