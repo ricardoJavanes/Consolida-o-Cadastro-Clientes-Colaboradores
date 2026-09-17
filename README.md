@@ -153,8 +153,8 @@ graph TD
     SyncWorker -.->|Update Async| Mongo
     SyncWorker -->|Consume| Kafka
     
-    Kafka <--|Streaming| CdcLegados
-    Kafka <--|Streaming| CdcCloud
+    Kafka <-->|Streaming| CdcLegados
+    Kafka <-->|Streaming| CdcCloud
     
     CdcLegados -.->|Leitura de Logs| OracleDB
     CdcCloud -.->|Leitura de Logs| PostgresCloud
