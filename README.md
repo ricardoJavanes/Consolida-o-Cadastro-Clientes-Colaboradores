@@ -196,54 +196,6 @@ A separação promovida pelas especificações do **TM Forum** resolve essa fric
 
 
 
-Aqui está um banco abrangente com 20 perguntas técnicas e estratégicas que a banca de arquitetura da Vivo pode fazer sobre a solução proposta, divididas por categorias para facilitar o seu estudo. As respostas são diretas e usam a terminologia correta de mercado.
-------------------------------
-## 🌐 Camada de Exposição, Governança e TM Forum## 1. Por que usar o WSO2 ou o Kong como API Gateway em vez de expor a API de consulta direto na internet?
-Resposta: O API Gateway centraliza a governança. Ele lida com autenticação unificada (OAuth2/OIDC), aplica rate limiting para proteger nossa infraestrutura de ataques ou abusos e nos dá métricas de telemetria em um único ponto, blindando os microsserviços internos.
-## 2. Na prática, qual é o ganho real de negócio em adotar a especificação TMF629 (Customer Management)?
-Resposta: Redução drástica no Time-to-Market. Ao usar um modelo de dados canônico universal de telecomunicações, qualquer novo canal ou sistema que a Vivo adquirir no futuro não precisará de uma nova integração proprietária; bastará consumir o contrato REST/JSON padrão da TMF629.
-## 3. Qual a diferença conceitual e prática entre a TMF632 (Party) e a TMF629 (Customer) no seu desenho?
-Resposta: A TMF632 gerencia a entidade mestra real (o indivíduo, CPF, nome civil — foco em MDM e LGPD). A TMF629 gerencia o papel comercial que esse indivíduo desempenha na operadora (o cliente que possui uma conta de fibra ou um plano móvel). Um único Party (TMF632) pode estar vinculado a múltiplos papéis de Customer (TMF629).
-## 4. Como sua API de consulta lida com paginação e filtros complexos exigidos pelo CRM dos agentes?
-Resposta: Seguindo as diretrizes de design do TM Forum, expomos filtros nativos na query string (ex: GET /customer?status=Active&page=1&size=20). A Customer-Query-API traduz esses parâmetros em consultas indexadas diretamente no MongoDB, evitando trafegar payloads desnecessários na rede.
-------------------------------
-## 📥 Camada de Ingestão, Eventos e CDC (Apache Kafka / Debezium)## 5. O Debezium pode causar lentidão ou travar os bancos de dados dos sistemas legados da Vivo?
-Resposta: Não, pois ele opera em modo "não intrusivo". Em vez de executar queries SELECT nas tabelas de produção, o Debezium lê diretamente os arquivos de log de transação do banco (como o Redo Log do Oracle ou o WAL do PostgreSQL). O impacto em CPU e memória na origem é praticamente zero.
-## 6. Como garantir a ordenação estrita dos eventos no Kafka se o mesmo cliente for atualizado várias vezes seguidas?
-Resposta: Usamos o CPF ou CNPJ do cliente como a Message Key (chave da mensagem) no Kafka. O Kafka garante que todas as mensagens que possuem a mesma chave caiam estritamente na mesma partição do tópico, assegurando que o Customer-Sync-Worker as processe na ordem exata em que ocorreram na origem.
-## 7. O que acontece se o pipeline de CDC falhar e enviar uma mensagem com o esquema quebrado ou corrompido?
-Resposta: Implementamos o padrão Dead Letter Queue (DLQ). O Customer-Sync-Worker possui um bloco de try-catch acoplado ao Schema Registry. Se a mensagem vier malformada ou violar o contrato, ela é desviada automaticamente para o tópico de DLQ para análise e reprocessamento posterior, sem travar o processamento das mensagens saudáveis.
-## 8. Como evitar que mensagens duplicadas no Kafka (causadas por retentativas de rede) gerem dados inconsistentes na base 360°?
-Resposta: O Customer-Sync-Worker opera de forma idempotente. Antes de persistir qualquer alteração, ele checa o identificador do evento e o timestamp. Se o dado que está tentando gravar for igual ou mais antigo do que o dado que já está no MongoDB/Redis, a mensagem é simplesmente descartada como duplicada.
-## 9. O que acontece se o volume de eventos no Kafka crescer abruptamente (ex: uma carga em lote nos legados)? Como a arquitetura escala?
-Resposta: A escalabilidade do Kafka é horizontal por meio de partições. Nós escalamos o Customer-Sync-Worker criando múltiplas instâncias dentro do Kubernetes (EKS/GKE) configuradas no mesmo Consumer Group. Cada instância assume o processamento de uma partição, dividindo a carga de forma elástica.
-------------------------------
-## 💾 Camada de Armazenamento e CQRS (Redis + MongoDB)## 10. Explique a estratégia de cache híbrido adotada. Por que usar Redis e MongoDB juntos?
-Resposta: Aplicamos o padrão CQRS. O MongoDB é a nossa base NoSQL estruturada de persistência durável, onde guardamos o JSON completo da Visão 360° do cliente. O Redis Cluster funciona como um cache em memória (chave-valor) focado em altíssima frequência. A API busca primeiro no Redis; se houver Cache Miss, ela busca no MongoDB e reidrata o Redis.
-## 11. O que é o padrão Cache-Aside indicado na sua solução e como ele se comporta em um Cache Miss?
-Resposta: No padrão Cache-Aside, a aplicação de consulta gerencia o cache. Quando ocorre um Cache Miss (o dado não está no Redis), a API vai até o MongoDB, recupera o payload unificado de 360°, responde ao canal solicitante (app/CRM) e, de forma assíncrona, grava uma cópia desse dado no Redis para que a próxima consulta seja imediata.
-## 12. Como garantir que o Redis não fique sem memória RAM com milhões de clientes da Vivo cadastrados?
-Resposta: Adotamos três estratégias combinadas: primeiro, salvamos no Redis apenas os dados de alta frequência necessários para a tela de atendimento; segundo, configuramos políticas de despejo como LRU (Least Recently Used), que remove os clientes menos consultados; e terceiro, definimos um TTL (Time-To-Live) curto para expiração do dado.
-## 13. Qual é o tempo de vida (TTL) ideal para o dado do cliente no Redis e como decidir esse valor?
-Resposta: O TTL ideal varia entre 2 e 4 horas para dados de CX. Como temos o Customer-Sync-Worker atualizando o Redis de forma ativa e assíncrona a cada evento que chega do Kafka (Write-Through parcial), o TTL serve apenas como uma garantia para limpar a memória de clientes inativos que não entram no app ou no CRM há muito tempo.
-------------------------------
-## 🛡️ Resiliência, Falhas e FinOps## 14. Se um sistema legado on-premises da Vivo cair completamente agora, o cliente consegue consultar os dados dele no app Meu Vivo?
-Resposta: Sim, consegue. Como a arquitetura é totalmente desacoplada, a Customer-Query-API consome o dado pré-calculado e consolidado que já está no Redis ou MongoDB. O cliente terá acesso à última versão estável do seu cadastro, garantindo 100% de disponibilidade no atendimento mesmo com o legado fora do ar.
-## 15. Como o framework Resilience4j protege sua API de consulta contra falhas em cascata?
-Resposta: Implementamos o padrão Circuit Breaker. Se as requisições ao Redis começarem a falhar ou apresentar lentidão acima do limite aceitável, o circuito "abre", interrompendo chamadas ao Redis e direcionando o tráfego de leitura de forma imediata (fallback) para o MongoDB, protegendo a saúde da aplicação.
-## 16. O que acontece se o Customer-Sync-Worker ficar indisponível por algumas horas? Há perda de dados?
-Resposta: Não há perda de dados. O Apache Kafka é um sistema de mensageria persistente em disco. Se o Worker cair, as mensagens de alteração enviadas pelos legados acumulam com segurança nos tópicos do Kafka (gerando Consumer Lag). Assim que o Worker voltar a operar, ele processa o histórico acumulado a partir do último offset salvo.
-## 17. Como mitigar o risco de segurança em armazenar dados sensíveis de clientes (PII) no Redis e no MongoDB?
-Resposta: Aplicamos criptografia em duas camadas: Encryption at Rest (criptografia em disco usando chaves gerenciadas no KMS para os volumes do MongoDB/Redis) e Encryption in Transit (forçando conexões seguras mTLS / TLS 1.3 entre a API e as bases de dados). Adicionalmente, aplicamos máscaras de dados para campos sensíveis diretamente no API Gateway.
-## 18. Como monitorar se o dado está demorando muito para sair do legado e aparecer atualizado no app (latência do pipeline)?
-Resposta: Monitoramos o Consumer Lag no Kafka via Prometheus/Grafana, que mede a distância entre a última mensagem produzida e a última mensagem processada pelo Worker. Também injetamos uma métrica de telemetria baseada no timestamp original da transação do banco de origem, calculando o tempo total de tráfego até o cache.
-## 19. Qual estratégia de infraestrutura na nuvem pode ser usada para baratear os custos do MongoDB e do Redis em produção?
-Resposta: Aplicamos políticas de FinOps, utilizando instâncias baseadas em processadores ARM (como instâncias Graviton na AWS), que oferecem melhor custo-benefício para NoSQL. Para o MongoDB, podemos usar armazenamento em camadas (Tiered Storage), movendo dados de clientes inativos para discos mais baratos automaticamente.
-## 20. Se a Vivo decidir substituir um sistema legado por uma nova solução em nuvem no futuro, qual o impacto nessa arquitetura?
-Resposta: O impacto é mínimo e restrito à ponta de captura. Bastará plugar o conector do Debezium no novo banco de dados em nuvem para publicar no mesmo tópico do Kafka. A camada de microsserviços de consulta, o Redis, o MongoDB e as APIs canônicas do TM Forum que atendem ao front-end permanecerão intocados, provando o valor do desacoplamento absoluto.
-------------------------------
-
-1. "Como sua arquitetura lida com a Consistência Eventual caso um atendente altere o dado no CRM e o cliente consulte o app Meu Vivo um milissegundo depois?"Sua Resposta: "Como usamos uma arquitetura orientada a eventos com CDC, assumimos o trade-off da consistência eventual. No entanto, o transporte via Kafka e o processamento do Customer-Sync-Worker ocorrem na casa de pouquíssimos milissegundos. Para mitigar o impacto em telas críticas de alteração imediata, podemos adotar uma estratégia de otimismo na UI do canal ou um padrão Write-Through direto no Redis para aquela transação específica."2. "O que acontece se o MongoDB ou o Redis ficarem indisponíveis?"Sua Resposta: "A arquitetura foi desenhada com alta resiliência baseada em Circuit Breaker (Resilience4j). Se o Redis sofrer uma instabilidade, a API de consulta degrada graciosamente fazendo o fallback de leitura direto no MongoDB. Se o problema for na persistência ou processamento do Worker, o Kafka retém as mensagens nos tópicos com segurança até que o ambiente se restabeleça, sem que o cliente perca transações."3. "Por que você escolheu duas bases de dados (Redis + MongoDB) em vez de usar apenas uma?"Sua Resposta: "Seguimos estritamente o padrão CQRS. O MongoDB atua como nossa base NoSQL estruturada de persistência de longo prazo para armazenar o documento unificado JSON de Visão 360°. O Redis entra estritamente como um cache de alta frequência em memória para garantir que as buscas por ID de cliente fiquem sempre abaixo de 5ms, protegendo o MongoDB e os legados de sobrecarga de leitura (offloading)."
 
 
 
