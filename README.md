@@ -267,7 +267,7 @@ graph TD
     CdcLegados -.->|Reads Transation Logs| OracleDB
     CdcCloud -.->|Reads Change Logs| PostgresCloud
 ```
-# EDA: Como tratar cada um dos desafios
+# EDA: 
 **Arquitetura orientada a eventos com Kafka**
 
 ---
