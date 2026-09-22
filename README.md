@@ -267,6 +267,78 @@ graph TD
     CdcLegados -.->|Reads Transation Logs| OracleDB
     CdcCloud -.->|Reads Change Logs| PostgresCloud
 ```
+# EDA: Como tratar cada um dos desafios
+**Arquitetura orientada a eventos com Kafka**
+
+---
+
+## 1. Eventual Consistency (Consistência Eventual)
+* **O que é / Problema:** Os dados não ficam consistentes imediatamente entre os sistemas (legado \(\rightarrow\) Kafka \(\rightarrow\) consumidores).
+* **Como tratar:** Definir SLA de propagação; monitorar lag do Kafka/consumidores; tratar dependências que não exigem consistência imediata.
+* **Exemplo prático:** Após uma alteração no banco legado, o dado deve estar disponível na camada de consulta em até 2 segundos.
+
+## 2. Duplicidade de eventos
+* **O que é / Problema:** O mesmo evento pode ser entregue mais de uma vez (falha no consumidor, retry, etc.).
+* **Como tratar:** Implementar idempotência; verificar se o evento já foi processado; usar tabela de eventos processados ou restrições únicas.
+* **Exemplo prático:** Se o evento 123 já foi processado, o consumidor ignora a duplicidade.
+
+## 3. Ordenação
+* **O que é / Problema:** Eventos podem chegar fora de ordem, causando estado incorreto.
+* **Como tratar:** Usar chave de particionamento (ex: `clientId`) para garantir a ordem dentro da partition do Kafka.
+* **Exemplo prático:** Todos os eventos do mesmo cliente ficam na mesma partition.
+
+## 4. Idempotência
+* **O que é / Problema:** Processar o mesmo evento mais de uma vez pode gerar efeitos colaterais (indesejados).
+* **Como tratar:** Usar `eventId` ou chave de negócio com restrição única; verificar antes de processar.
+* **Exemplo prático:** Mesmo evento de pagamento não deve debitar o cliente duas vezes.
+
+## 5. Retry
+* **O que é / Problema:** Falhas temporárias podem impedir o processamento do evento.
+* **Como tratar:** Implementar retry com backoff (exponencial); configurar limites de tentativas.
+* **Exemplo prático:** Se o MongoDB estiver indisponível, repetir em 1s, 5s, 30s...
+
+## 6. DLQ (Dead Letter Queue)
+* **O que é / Problema:** Eventos que continuam falhando após várias tentativas.
+* **Como tratar:** Enviar para uma fila de DLQ; monitorar e criar processo operacional para reprocessamento.
+* **Exemplo prático:** Eventos com erro permanente vão para a DLQ e são analisados e corrigidos.
+
+## 7. Observabilidade
+* **O que é / Problema:** Dificuldade para identificar onde ocorreu uma falha ou gargalo.
+* **Como tratar:** Implementar logs, métricas e tracing (ex: OpenTelemetry, Prometheus, Grafana, Jaeger, CloudWatch).
+* **Exemplo prático:** Rastrear o `eventId` em todas as etapas: CDC, Kafka, Consumer, Redis/MongoDB.
+
+## 8. Versionamento de eventos
+* **O que é / Problema:** Mudanças no contrato do evento podem quebrar consumidores existentes.
+* **Como tratar:** Usar versionamento (v1, v2...); manter compatibilidade; comunicar mudanças.
+* **Exemplo prático:** `ClienteAtualizado.v1` e `ClienteAtualizado.v2` convivendo.
+
+## 9. Schema Evolution
+* **O que é / Problema:** Evolução da estrutura do evento pode gerar incompatibilidade.
+* **Como tratar:** Usar Schema Registry (Avro, Protobuf, JSON Schema); permitir evolução compatível.
+* **Exemplo prático:** Adicionar campo "email" no evento sem quebrar consumidores antigos.
+
+## 10. Reprocessamento
+* **O que é / Problema:** Precisamos processar novamente eventos antigos (ex: correção de bug).
+* **Como tratar:** Manter retenção de eventos no Kafka; criar consumidores de reprocessamento; usar offset.
+* **Exemplo prático:** Após corrigir um bug, reprocessar todos os eventos da última semana.
+
+## 11. Garantia de entrega
+* **O que é / Problema:** Não podemos perder eventos, mas também precisamos lidar com duplicidade.
+* **Como tratar:** Usar at-least-once + idempotência; evitar at-most-once; avaliar exactly-once de ponta a ponta.
+* **Exemplo prático:** Kafka garante at-least-once; a idempotência evita duplicidade no destino.
+
+## 12. Transações distribuídas
+* **O que é / Problema:** Vários sistemas precisam participar de uma mesma operação (ex: pedido, estoque, pagamento).
+* **Como tratar:** Evitar transações distribuídas ACID; usar o padrão Saga com eventos e compensações.
+* **Exemplo prático:** Se o pagamento falhar, compensar a reserva de estoque e cancelar o pedido.
+
+---
+
+### Resumo da Arquitetura
+`Sistemas Legados` \(\rightarrow\) `CDC (Debezium)` \(\rightarrow\) `Kafka (Event Stream)` \(\rightarrow\) `Consumers (Processing)` \(\rightarrow\) `Redis/MongoDB (Projection)` \(\rightarrow\) `API de Consulta (Consumers)`
+
+* **Conclusão:** EDA não é só colocar Kafka no meio. É tratar cada desafio para que o fluxo de eventos seja confiável, observável e escalável.
+* **Resultado:** Sistemas desacoplados, escalabilidade, resiliência e dados disponíveis para consulta.
 
 
 
