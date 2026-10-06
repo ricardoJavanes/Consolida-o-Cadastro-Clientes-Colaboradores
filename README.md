@@ -44,7 +44,7 @@ Decidimos adotar uma **Arquitetura Orientada a Eventos (EDA)** baseada no padrã
 
 O diagrama abaixo ilustra as fronteiras da solução proposta, o desacoplamento absoluto dos sistemas legados/cloud através do barramento de eventos, e a API de consulta consumindo o repositório consolidado em memória.
 
-![Diagrama C4 Model Agnóstico](C4-sqrc.jpg)
+![Diagrama C4 Model Agnóstico](C4-sqrc.png)
 
 
 ### Detalhamento dos Componentes do Desenho
