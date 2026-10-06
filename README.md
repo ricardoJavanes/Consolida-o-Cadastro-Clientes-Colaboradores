@@ -40,11 +40,13 @@ Decidimos adotar uma **Arquitetura Orientada a Eventos (EDA)** baseada no padrã
 * O desenho detalhado dos contêineres e componentes seguirá estritamente a metodologia **C4 Model** (Níveis 1 e 2) na documentação complementar.
 
 
-## Diagrama de Arquitetura \
+## Diagrama de Arquitetura
 
 O diagrama abaixo ilustra as fronteiras da solução proposta, o desacoplamento absoluto dos sistemas legados/cloud através do barramento de eventos, e a API de consulta consumindo o repositório consolidado em memória.
 
 ![Diagrama C4 Model Agnóstico](C4-sqrc.jpg)
+
+
 ### Detalhamento dos Componentes do Desenho
 
 1. **Camada de Exposição e Governança:** O **API Gateway** unifica a entrada de canais, aplicando segurança jurídica (OAuth2/OIDC) e políticas de tráfego (Rate Limiting) diretamente sob os contratos globais **TMF629** e **TMF632**.
